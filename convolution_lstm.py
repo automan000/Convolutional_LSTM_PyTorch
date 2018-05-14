@@ -15,28 +15,35 @@ class ConvLSTMCell(nn.Module):
         self.kernel_size = kernel_size
         self.num_features = 4
 
-        self.padding = (kernel_size - 1) / 2
-        self.conv = nn.Conv2d(self.input_channels + self.hidden_channels, 4 * self.hidden_channels, self.kernel_size, 1,
-                              self.padding)
+        self.padding = int((kernel_size - 1) / 2)
 
-    def forward(self, input, h, c):
+        self.Wxi = nn.Conv2d(self.input_channels, self.hidden_channels, self.kernel_size, 1, self.padding, bias=True)
+        self.Whi = nn.Conv2d(self.hidden_channels, self.hidden_channels, self.kernel_size, 1, self.padding, bias=False)
+        self.Wxf = nn.Conv2d(self.input_channels, self.hidden_channels, self.kernel_size, 1, self.padding, bias=True)
+        self.Whf = nn.Conv2d(self.hidden_channels, self.hidden_channels, self.kernel_size, 1, self.padding, bias=False)
+        self.Wxc = nn.Conv2d(self.input_channels, self.hidden_channels, self.kernel_size, 1, self.padding, bias=True)
+        self.Whc = nn.Conv2d(self.hidden_channels, self.hidden_channels, self.kernel_size, 1, self.padding, bias=False)
+        self.Wxo = nn.Conv2d(self.input_channels, self.hidden_channels, self.kernel_size, 1, self.padding,  bias=True)
+        self.Who = nn.Conv2d(self.hidden_channels, self.hidden_channels, self.kernel_size, 1, self.padding, bias=False)
 
-        combined = torch.cat((input, h), dim=1)
-        A = self.conv(combined)
-        (ai, af, ao, ag) = torch.split(A, A.size()[1] / self.num_features, dim=1)
-        i = torch.sigmoid(ai)
-        f = torch.sigmoid(af)
-        o = torch.sigmoid(ao)
-        g = torch.tanh(ag)
+        self.Wci = None
+        self.Wcf = None
+        self.Wco = None
 
-        new_c = f * c + i * g
-        new_h = o * torch.tanh(new_c)
+    def forward(self, x, h, c):
+        ci = torch.sigmoid(self.Wxi(x) + self.Whi(h) + c * self.Wci)
+        cf = torch.sigmoid(self.Wxf(x) + self.Whf(h) + c * self.Wcf)
+        new_c = cf * c + ci * torch.tanh(self.Wxc(x) + self.Whc(h))
+        co = torch.sigmoid(self.Wxo(x) + self.Who(h) + c * self.Wci)
+        new_h = co * torch.tanh(new_c)
         return new_h, new_c
 
-    @staticmethod
-    def init_hidden(batch_size, hidden_c, shape):
-        return (Variable(torch.zeros(batch_size, hidden_c, shape[0], shape[1])).cuda(),
-                Variable(torch.zeros(batch_size, hidden_c, shape[0], shape[1])).cuda())
+    def init_hidden(self, batch_size, hidden, shape):
+        self.Wci = Variable(torch.zeros(1, hidden, shape[0], shape[1])).cuda()
+        self.Wcf = Variable(torch.zeros(1, hidden, shape[0], shape[1])).cuda()
+        self.Wco = Variable(torch.zeros(1, hidden, shape[0], shape[1])).cuda()
+        return (Variable(torch.zeros(batch_size, hidden, shape[0], shape[1])).cuda(),
+                Variable(torch.zeros(batch_size, hidden, shape[0], shape[1])).cuda())
 
 
 class ConvLSTM(nn.Module):
@@ -65,14 +72,14 @@ class ConvLSTM(nn.Module):
             x = input
             for i in range(self.num_layers):
                 # all cells are initialized in the first step
+                name = 'cell{}'.format(i)
                 if step == 0:
                     bsize, _, height, width = x.size()
-                    (h, c) = ConvLSTMCell.init_hidden(bsize, self.hidden_channels[i], (height, width))
+                    (h, c) = getattr(self, name).init_hidden(batch_size=bsize, hidden=self.hidden_channels[i], shape=(height, width))
                     internal_state.append((h, c))
-                # do forward
-                name = 'cell{}'.format(i)
-                (h, c) = internal_state[i]
 
+                # do forward
+                (h, c) = internal_state[i]
                 x, new_c = getattr(self, name)(x, h, c)
                 internal_state[i] = (x, new_c)
             # only record effective steps
@@ -81,4 +88,18 @@ class ConvLSTM(nn.Module):
 
         return outputs, (x, new_c)
 
+
+if __name__ == '__main__':
+
+    convlstm = ConvLSTM(input_channels=512, hidden_channels=[128, 64, 64, 32, 32], kernel_size=3, step=1, effective_step=[0]).cuda()
+    loss_fn = torch.nn.MSELoss()
+
+    input = Variable(torch.randn(1, 512, 64, 32)).cuda()
+    target = Variable(torch.randn(1, 32, 64, 32)).cuda()
+
+    output = convlstm(input)
+    output = output[0][0]
+
+    res = torch.autograd.gradcheck(loss_fn, (output, target), raise_exception=True)
+    print(res)
 
