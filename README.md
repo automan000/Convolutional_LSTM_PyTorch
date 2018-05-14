@@ -11,3 +11,6 @@ clstm = ConvLSTM(input_channels=512, hidden_channels=[128, 64, 64], kernel_size=
 lstm_outputs = clstm(cnn_features)
 hidden_states = lstm_outputs[0]
 ```
+
+# UPDATE-May.18.2018
+Fix a critial bug. Thanks to [@Jackie-Chou](https://github.com/Jackie-Chou) and [@chencodeX](https://github.com/chencodeX).

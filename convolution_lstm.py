@@ -33,8 +33,8 @@ class ConvLSTMCell(nn.Module):
     def forward(self, x, h, c):
         ci = torch.sigmoid(self.Wxi(x) + self.Whi(h) + c * self.Wci)
         cf = torch.sigmoid(self.Wxf(x) + self.Whf(h) + c * self.Wcf)
+        co = torch.sigmoid(self.Wxo(x) + self.Who(h) + c * self.Wco)
         new_c = cf * c + ci * torch.tanh(self.Wxc(x) + self.Whc(h))
-        co = torch.sigmoid(self.Wxo(x) + self.Who(h) + c * self.Wci)
         new_h = co * torch.tanh(new_c)
         return new_h, new_c
 
@@ -91,7 +91,8 @@ class ConvLSTM(nn.Module):
 
 if __name__ == '__main__':
 
-    convlstm = ConvLSTM(input_channels=512, hidden_channels=[128, 64, 64, 32, 32], kernel_size=3, step=1, effective_step=[0]).cuda()
+    # gradient check
+    convlstm = ConvLSTM(input_channels=512, hidden_channels=[128, 64, 64, 32, 32], kernel_size=3, step=5, effective_step=[4]).cuda()
     loss_fn = torch.nn.MSELoss()
 
     input = Variable(torch.randn(1, 512, 64, 32)).cuda()
@@ -99,7 +100,6 @@ if __name__ == '__main__':
 
     output = convlstm(input)
     output = output[0][0]
-
     res = torch.autograd.gradcheck(loss_fn, (output, target), raise_exception=True)
     print(res)
 
