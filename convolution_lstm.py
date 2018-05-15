@@ -33,10 +33,10 @@ class ConvLSTMCell(nn.Module):
     def forward(self, x, h, c):
         ci = torch.sigmoid(self.Wxi(x) + self.Whi(h) + c * self.Wci)
         cf = torch.sigmoid(self.Wxf(x) + self.Whf(h) + c * self.Wcf)
-        co = torch.sigmoid(self.Wxo(x) + self.Who(h) + c * self.Wco)
-        new_c = cf * c + ci * torch.tanh(self.Wxc(x) + self.Whc(h))
-        new_h = co * torch.tanh(new_c)
-        return new_h, new_c
+        cc = cf * c + ci * torch.tanh(self.Wxc(x) + self.Whc(h))
+        co = torch.sigmoid(self.Wxo(x) + self.Who(h) + cc * self.Wco)
+        ch = co * torch.tanh(cc)
+        return ch, cc
 
     def init_hidden(self, batch_size, hidden, shape):
         self.Wci = Variable(torch.zeros(1, hidden, shape[0], shape[1])).cuda()
