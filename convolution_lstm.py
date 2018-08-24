@@ -96,10 +96,10 @@ if __name__ == '__main__':
     loss_fn = torch.nn.MSELoss()
 
     input = Variable(torch.randn(1, 512, 64, 32)).cuda()
-    target = Variable(torch.randn(1, 32, 64, 32)).cuda()
+    target = Variable(torch.randn(1, 32, 64, 32)).double().cuda()
 
     output = convlstm(input)
-    output = output[0][0]
-    res = torch.autograd.gradcheck(loss_fn, (output, target), raise_exception=True)
+    output = output[0][0].double()
+    res = torch.autograd.gradcheck(loss_fn, (output, target), eps=1e-6, raise_exception=True)
     print(res)
 
