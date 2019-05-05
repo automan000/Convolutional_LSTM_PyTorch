@@ -14,3 +14,7 @@ hidden_states = lstm_outputs[0]
 
 # UPDATE-May.18.2018
 Fix a critial bug. Thanks to [@Jackie-Chou](https://github.com/Jackie-Chou) and [@chencodeX](https://github.com/chencodeX).
+
+# UPDATE-May.04.2019
+As suggested by multiple people, Wci, Wcf, and Wco should not be initialized frequently.
+Apologies for the inconvenience.
